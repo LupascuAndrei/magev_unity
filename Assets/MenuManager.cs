@@ -1,7 +1,9 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using Assets.HeroEditor.Common.Scripts.CharacterScripts;
 using Assets.HeroEditor.Common.Scripts.EditorScripts;
+using System.Linq;
 
 namespace Assets.Scripts
 {
@@ -14,8 +16,6 @@ namespace Assets.Scripts
         public GameObject MenuPanel;
         public GameObject CharacterEditorPanel;
         public Character PlayerCharacter;
-        public CharacterEditor CharacterEditor;
-        public GameObject CharacterEditorHuman; // Human GameObject inside CharacterEditor
         
         [Header("Buttons")]
         public Button EditPlayerButton;
@@ -34,12 +34,6 @@ namespace Assets.Scripts
             if (MenuPanel != null) MenuPanel.SetActive(false);
             if (CharacterEditorPanel != null) CharacterEditorPanel.SetActive(false);
             
-            // Disable Human GameObject at start
-            if (CharacterEditorHuman != null)
-            {
-                CharacterEditorHuman.SetActive(false);
-            }
-            
             // Setup button listeners
             if (EditPlayerButton != null)
                 EditPlayerButton.onClick.AddListener(OnEditPlayer);
@@ -57,12 +51,6 @@ namespace Assets.Scripts
             if (_customizationManager != null && PlayerCharacter != null)
             {
                 _customizationManager.LoadCharacter(PlayerCharacter);
-            }
-            
-            // Connect CharacterEditor to PlayerCharacter when it becomes active
-            if (CharacterEditor != null && PlayerCharacter != null)
-            {
-                CharacterEditor.Character = PlayerCharacter;
             }
         }
 
@@ -117,60 +105,37 @@ namespace Assets.Scripts
 
         private void OnEditPlayer()
         {
-            // Activate CharacterEditor panel in current scene instead of loading a new scene
-            _isEditorOpen = true;
+            // Save current scene name for return
+            CharacterEditorReturn.ReturnSceneName = SceneManager.GetActiveScene().name;
             
-            // Hide menu panel
-            if (MenuPanel != null)
+            // Save character data to JSON so it can be loaded in CharacterEditor scene
+            if (PlayerCharacter != null)
             {
-                MenuPanel.SetActive(false);
+                CharacterEditor.CharacterJson = PlayerCharacter.ToJson();
             }
             
-            // Activate CharacterEditor panel
-            if (CharacterEditorPanel != null)
+            // Check if CharacterEditor scene is in Build Settings
+            #if UNITY_EDITOR
+            if (!UnityEditor.EditorBuildSettings.scenes.Any(i => i.path.Contains("CharacterEditor") && i.enabled))
             {
-                CharacterEditorPanel.SetActive(true);
+                UnityEditor.EditorUtility.DisplayDialog("Scene Not Found", 
+                    "Please add 'CharacterEditor.unity' to Build Settings!\n\n" +
+                    "File -> Build Settings -> Add Open Scenes", "OK");
+                return;
             }
+            #endif
             
-            // Enable Human GameObject
-            if (CharacterEditorHuman != null)
-            {
-                CharacterEditorHuman.SetActive(true);
-            }
-            
-            // Connect CharacterEditor to PlayerCharacter
-            if (CharacterEditor != null && PlayerCharacter != null)
-            {
-                CharacterEditor.Character = PlayerCharacter;
-            }
-            
-            // Pause game while editing
-            Time.timeScale = 0f;
+            // Load CharacterEditor scene
+            SceneManager.LoadScene("CharacterEditor");
         }
 
         private void OnCloseEditor()
         {
+            // This method is no longer used since we're loading a separate scene
+            // But keeping it for compatibility in case CharacterEditorPanel is still referenced
             _isEditorOpen = false;
-            
-            // Disable Human GameObject
-            if (CharacterEditorHuman != null)
-            {
-                CharacterEditorHuman.SetActive(false);
-            }
-            
-            // Hide CharacterEditor panel
-            if (CharacterEditorPanel != null)
-            {
-                CharacterEditorPanel.SetActive(false);
-            }
-            
-            // Show menu panel
-            if (MenuPanel != null)
-            {
-                MenuPanel.SetActive(true);
-            }
-            
-            // Resume game
+            if (CharacterEditorPanel != null) CharacterEditorPanel.SetActive(false);
+            if (MenuPanel != null) MenuPanel.SetActive(true);
             Time.timeScale = 1f;
         }
 
